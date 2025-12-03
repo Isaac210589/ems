@@ -1,0 +1,553 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Employment Management System</title>
+  <script src="/_sdk/data_sdk.js"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      height: 100%;
+    }
+    
+    html {
+      height: 100%;
+    }
+
+    .app-container {
+      width: 100%;
+      min-height: 100%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .modal-backdrop {
+      background-color: rgba(0, 0, 0, 0.5);
+    }
+
+    .stat-card {
+      transition: transform 0.2s;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-4px);
+    }
+
+    .employee-row {
+      transition: background-color 0.2s;
+    }
+
+    .employee-row:hover {
+      background-color: #f9fafb;
+    }
+
+    .loading-spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #667eea;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      padding: 16px 24px;
+      border-radius: 8px;
+      color: white;
+      font-weight: 500;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.3s, transform 0.3s;
+      z-index: 1000;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .toast.success {
+      background-color: #10b981;
+    }
+
+    .toast.error {
+      background-color: #ef4444;
+    }
+  </style>
+  <style>@view-transition { navigation: auto; }</style>
+ </head>
+ <body>
+  <div class="app-container">
+   <div style="max-width: 1400px; margin: 0 auto; padding: 32px;"><!-- Header -->
+    <div style="background: white; border-radius: 12px; padding: 24px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+     <div style="display: flex; justify-content: space-between; align-items: center;">
+      <div>
+       <h1 id="system-title" style="font-size: 32px; font-weight: 700; color: #1f2937; margin: 0 0 8px 0;">Employment Management System</h1>
+       <p id="company-name" style="color: #6b7280; margin: 0;">HQ-ASOB</p>
+      </div><button id="add-employee-btn" style="background: #667eea; color: white; padding: 12px 24px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; font-size: 16px;"> + Add Employee </button>
+     </div>
+    </div><!-- Stats Cards -->
+    <div id="stats-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 24px;">
+     <div class="stat-card" style="background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+      <p style="color: #6b7280; font-size: 14px; margin: 0 0 8px 0;">Total Employees</p>
+      <p id="total-employees" style="font-size: 36px; font-weight: 700; color: #667eea; margin: 0;">0</p>
+     </div>
+     <div class="stat-card" style="background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+      <p style="color: #6b7280; font-size: 14px; margin: 0 0 8px 0;">Active Employees</p>
+      <p id="active-employees" style="font-size: 36px; font-weight: 700; color: #10b981; margin: 0;">0</p>
+     </div>
+     <div class="stat-card" style="background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+      <p style="color: #6b7280; font-size: 14px; margin: 0 0 8px 0;">Departments</p>
+      <p id="total-departments" style="font-size: 36px; font-weight: 700; color: #f59e0b; margin: 0;">0</p>
+     </div>
+    </div><!-- Filters -->
+    <div style="background: white; border-radius: 12px; padding: 20px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+      <div><label style="display: block; color: #374151; font-weight: 500; margin-bottom: 8px; font-size: 14px;">Search</label> <input id="search-input" type="text" placeholder="Search by name or email" style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;">
+      </div>
+      <div><label style="display: block; color: #374151; font-weight: 500; margin-bottom: 8px; font-size: 14px;">Department</label> <select id="department-filter" style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;"> <option value="">All Departments</option> </select>
+      </div>
+      <div><label style="display: block; color: #374151; font-weight: 500; margin-bottom: 8px; font-size: 14px;">Status</label> <select id="status-filter" style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;"> <option value="">All Status</option> <option value="Active">Active</option> <option value="Inactive">Inactive</option> </select>
+      </div>
+     </div>
+    </div><!-- Employee Table -->
+    <div style="background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+     <h2 style="font-size: 20px; font-weight: 600; color: #1f2937; margin: 0 0 20px 0;">Employee Directory</h2>
+     <div style="overflow-x: auto;">
+      <table style="width: 100%; border-collapse: collapse;">
+       <thead>
+        <tr style="border-bottom: 2px solid #e5e7eb;">
+         <th style="text-align: left; padding: 12px; color: #6b7280; font-weight: 600; font-size: 14px;">Name</th>
+         <th style="text-align: left; padding: 12px; color: #6b7280; font-weight: 600; font-size: 14px;">Email</th>
+         <th style="text-align: left; padding: 12px; color: #6b7280; font-weight: 600; font-size: 14px;">Department</th>
+         <th style="text-align: left; padding: 12px; color: #6b7280; font-weight: 600; font-size: 14px;">Position</th>
+         <th style="text-align: left; padding: 12px; color: #6b7280; font-weight: 600; font-size: 14px;">Salary</th>
+         <th style="text-align: left; padding: 12px; color: #6b7280; font-weight: 600; font-size: 14px;">Status</th>
+         <th style="text-align: left; padding: 12px; color: #6b7280; font-weight: 600; font-size: 14px;">Actions</th>
+        </tr>
+       </thead>
+       <tbody id="employee-table-body">
+        <tr>
+         <td colspan="7" style="text-align: center; padding: 48px; color: #9ca3af;">No employees yet. Click "Add Employee" to get started.</td>
+        </tr>
+       </tbody>
+      </table>
+     </div>
+    </div>
+   </div>
+  </div><!-- Add/Edit Employee Modal -->
+  <div id="employee-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 50; align-items: center; justify-content: center;">
+   <div class="modal-backdrop" style="position: absolute; width: 100%; height: 100%;" onclick="closeModal()"></div>
+   <div style="background: white; border-radius: 12px; width: 90%; max-width: 600px; position: relative; z-index: 10; max-height: 90%; overflow-y: auto;">
+    <div style="padding: 24px; border-bottom: 1px solid #e5e7eb;">
+     <h2 id="modal-title" style="font-size: 24px; font-weight: 700; color: #1f2937; margin: 0;">Add Employee</h2>
+    </div>
+    <form id="employee-form" style="padding: 24px;">
+     <div style="margin-bottom: 20px;"><label for="employee-name" style="display: block; color: #374151; font-weight: 500; margin-bottom: 8px; font-size: 14px;">Full Name</label> <input type="text" id="employee-name" required style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;">
+     </div>
+     <div style="margin-bottom: 20px;"><label for="employee-email" style="display: block; color: #374151; font-weight: 500; margin-bottom: 8px; font-size: 14px;">Email Address</label> <input type="email" id="employee-email" required style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;">
+     </div>
+     <div style="margin-bottom: 20px;"><label for="employee-department" style="display: block; color: #374151; font-weight: 500; margin-bottom: 8px; font-size: 14px;">Department</label> <input type="text" id="employee-department" required style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;">
+     </div>
+     <div style="margin-bottom: 20px;"><label for="employee-position" style="display: block; color: #374151; font-weight: 500; margin-bottom: 8px; font-size: 14px;">Position</label> <input type="text" id="employee-position" required style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;">
+     </div>
+     <div style="margin-bottom: 20px;"><label for="employee-salary" style="display: block; color: #374151; font-weight: 500; margin-bottom: 8px; font-size: 14px;">Salary</label> <input type="number" id="employee-salary" required step="1000" style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;">
+     </div>
+     <div style="margin-bottom: 20px;"><label for="employee-hire-date" style="display: block; color: #374151; font-weight: 500; margin-bottom: 8px; font-size: 14px;">Hire Date</label> <input type="date" id="employee-hire-date" required style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;">
+     </div>
+     <div style="margin-bottom: 20px;"><label for="employee-status" style="display: block; color: #374151; font-weight: 500; margin-bottom: 8px; font-size: 14px;">Status</label> <select id="employee-status" required style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;"> <option value="Active">Active</option> <option value="Inactive">Inactive</option> </select>
+     </div>
+     <div style="display: flex; gap: 12px; justify-content: flex-end;"><button type="button" onclick="closeModal()" style="padding: 10px 20px; border: 1px solid #d1d5db; border-radius: 6px; background: white; color: #374151; font-weight: 500; cursor: pointer; font-size: 14px;"> Cancel </button> <button type="submit" id="submit-btn" style="padding: 10px 20px; border: none; border-radius: 6px; background: #667eea; color: white; font-weight: 500; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 8px;"> <span id="submit-text">Save Employee</span>
+       <div id="submit-spinner" class="loading-spinner" style="display: none;"></div></button>
+     </div>
+    </form>
+   </div>
+  </div><!-- Toast Notification -->
+  <div id="toast" class="toast"></div>
+  <script>
+    const API_URL = 'http://localhost:3000/api';
+    let employees = [];
+    let currentEmployee = null;
+    let recordCount = 0;
+
+    const defaultConfig = {
+      system_title: "Employment Management System",
+      company_name: "KLIC.IT Perfumes & more",
+      background_color: "#667eea",
+      card_color: "#ffffff",
+      text_color: "#1f2937",
+      primary_button_color: "#667eea",
+      accent_color: "#10b981"
+    };
+
+    // Load employees from backend
+    async function loadEmployees() {
+      try {
+        const response = await fetch(`${API_URL}/employees`);
+        const result = await response.json();
+        if (result.isOk) {
+          employees = result.data;
+          recordCount = employees.length;
+          updateUI();
+          updateStats();
+          updateDepartmentFilter();
+        } else {
+          showToast('Failed to load employees', 'error');
+        }
+      } catch (error) {
+        console.error('Error loading employees:', error);
+        showToast('Failed to load employees', 'error');
+      }
+    }
+
+    const dataHandler = {
+      onDataChanged(data) {
+        employees = data;
+        recordCount = data.length;
+        updateUI();
+        updateStats();
+        updateDepartmentFilter();
+      }
+    };
+
+    async function initializeApp() {
+      if (window.elementSdk) {
+        await window.elementSdk.init({
+          defaultConfig,
+          onConfigChange: async (config) => {
+            document.getElementById('system-title').textContent = config.system_title || defaultConfig.system_title;
+            document.getElementById('company-name').textContent = config.company_name || defaultConfig.company_name;
+            
+            const appContainer = document.querySelector('.app-container');
+            appContainer.style.background = `linear-gradient(135deg, ${config.background_color || defaultConfig.background_color} 0%, ${config.primary_button_color || defaultConfig.primary_button_color} 100%)`;
+            
+            const addBtn = document.getElementById('add-employee-btn');
+            addBtn.style.background = config.primary_button_color || defaultConfig.primary_button_color;
+          },
+          mapToCapabilities: (config) => ({
+            recolorables: [
+              {
+                get: () => config.background_color || defaultConfig.background_color,
+                set: (value) => {
+                  if (window.elementSdk) {
+                    window.elementSdk.config.background_color = value;
+                    window.elementSdk.setConfig({ background_color: value });
+                  }
+                }
+              },
+              {
+                get: () => config.card_color || defaultConfig.card_color,
+                set: (value) => {
+                  if (window.elementSdk) {
+                    window.elementSdk.config.card_color = value;
+                    window.elementSdk.setConfig({ card_color: value });
+                  }
+                }
+              },
+              {
+                get: () => config.text_color || defaultConfig.text_color,
+                set: (value) => {
+                  if (window.elementSdk) {
+                    window.elementSdk.config.text_color = value;
+                    window.elementSdk.setConfig({ text_color: value });
+                  }
+                }
+              },
+              {
+                get: () => config.primary_button_color || defaultConfig.primary_button_color,
+                set: (value) => {
+                  if (window.elementSdk) {
+                    window.elementSdk.config.primary_button_color = value;
+                    window.elementSdk.setConfig({ primary_button_color: value });
+                  }
+                }
+              },
+              {
+                get: () => config.accent_color || defaultConfig.accent_color,
+                set: (value) => {
+                  if (window.elementSdk) {
+                    window.elementSdk.config.accent_color = value;
+                    window.elementSdk.setConfig({ accent_color: value });
+                  }
+                }
+              }
+            ],
+            borderables: [],
+            fontEditable: undefined,
+            fontSizeable: undefined
+          }),
+          mapToEditPanelValues: (config) => new Map([
+            ["system_title", config.system_title || defaultConfig.system_title],
+            ["company_name", config.company_name || defaultConfig.company_name]
+          ])
+        });
+      }
+
+      // Load employees from backend
+      await loadEmployees();
+    }
+
+    function updateUI() {
+      const searchTerm = document.getElementById('search-input').value.toLowerCase();
+      const departmentFilter = document.getElementById('department-filter').value;
+      const statusFilter = document.getElementById('status-filter').value;
+
+      let filteredEmployees = employees.filter(emp => {
+        const matchesSearch = emp.name.toLowerCase().includes(searchTerm) || emp.email.toLowerCase().includes(searchTerm);
+        const matchesDepartment = !departmentFilter || emp.department === departmentFilter;
+        const matchesStatus = !statusFilter || emp.status === statusFilter;
+        return matchesSearch && matchesDepartment && matchesStatus;
+      });
+
+      const tbody = document.getElementById('employee-table-body');
+      
+      if (filteredEmployees.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7" style="text-align: center; padding: 48px; color: #9ca3af;">
+              ${employees.length === 0 ? 'No employees yet. Click "Add Employee" to get started.' : 'No employees match your filters.'}
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = filteredEmployees.map(emp => {
+        const statusColor = emp.status === 'Active' ? '#10b981' : '#6b7280';
+        const hireDate = new Date(emp.hire_date).toLocaleDateString();
+        return `
+          <tr class="employee-row" data-id="${emp.__backendId}" style="border-bottom: 1px solid #f3f4f6;">
+            <td style="padding: 16px; color: #1f2937; font-weight: 500;">${emp.name}</td>
+            <td style="padding: 16px; color: #6b7280;">${emp.email}</td>
+            <td style="padding: 16px; color: #6b7280;">${emp.department}</td>
+            <td style="padding: 16px; color: #6b7280;">${emp.position}</td>
+            <td style="padding: 16px; color: #6b7280;">$${Number(emp.salary).toLocaleString()}</td>
+            <td style="padding: 16px;">
+              <span style="background: ${statusColor}20; color: ${statusColor}; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600;">
+                ${emp.status}
+              </span>
+            </td>
+            <td style="padding: 16px;">
+              <button onclick="editEmployee('${emp.__backendId}')" style="background: #3b82f6; color: white; padding: 6px 12px; border-radius: 6px; border: none; cursor: pointer; margin-right: 8px; font-size: 13px;">Edit</button>
+              <button onclick="deleteEmployee('${emp.__backendId}')" style="background: #ef4444; color: white; padding: 6px 12px; border-radius: 6px; border: none; cursor: pointer; font-size: 13px;">Delete</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function updateStats() {
+      document.getElementById('total-employees').textContent = employees.length;
+      const activeCount = employees.filter(emp => emp.status === 'Active').length;
+      document.getElementById('active-employees').textContent = activeCount;
+      const departments = new Set(employees.map(emp => emp.department));
+      document.getElementById('total-departments').textContent = departments.size;
+    }
+
+    function updateDepartmentFilter() {
+      const departments = new Set(employees.map(emp => emp.department));
+      const select = document.getElementById('department-filter');
+      const currentValue = select.value;
+      
+      select.innerHTML = '<option value="">All Departments</option>';
+      Array.from(departments).sort().forEach(dept => {
+        const option = document.createElement('option');
+        option.value = dept;
+        option.textContent = dept;
+        select.appendChild(option);
+      });
+      
+      select.value = currentValue;
+    }
+
+    document.getElementById('add-employee-btn').addEventListener('click', () => {
+      if (recordCount >= 999) {
+        showToast('Maximum limit of 999 employees reached. Please delete some employees first.', 'error');
+        return;
+      }
+      currentEmployee = null;
+      document.getElementById('modal-title').textContent = 'Add Employee';
+      document.getElementById('submit-text').textContent = 'Save Employee';
+      document.getElementById('employee-form').reset();
+      document.getElementById('employee-modal').style.display = 'flex';
+    });
+
+    function editEmployee(backendId) {
+      currentEmployee = employees.find(emp => emp.__backendId === backendId);
+      if (!currentEmployee) return;
+
+      document.getElementById('modal-title').textContent = 'Edit Employee';
+      document.getElementById('submit-text').textContent = 'Update Employee';
+      document.getElementById('employee-name').value = currentEmployee.name;
+      document.getElementById('employee-email').value = currentEmployee.email;
+      document.getElementById('employee-department').value = currentEmployee.department;
+      document.getElementById('employee-position').value = currentEmployee.position;
+      document.getElementById('employee-salary').value = currentEmployee.salary;
+      document.getElementById('employee-hire-date').value = currentEmployee.hire_date;
+      document.getElementById('employee-status').value = currentEmployee.status;
+      document.getElementById('employee-modal').style.display = 'flex';
+    }
+
+    async function deleteEmployee(backendId) {
+      const employee = employees.find(emp => emp.__backendId === backendId);
+      if (!employee) return;
+
+      const row = document.querySelector(`tr[data-id="${backendId}"]`);
+      const deleteBtn = row.querySelector('button[onclick*="deleteEmployee"]');
+      const originalText = deleteBtn.textContent;
+      
+      deleteBtn.textContent = 'Confirm?';
+      deleteBtn.style.background = '#dc2626';
+      
+      const confirmDelete = () => {
+        performDelete(employee);
+        cleanup();
+      };
+      
+      const cancelDelete = () => {
+        deleteBtn.textContent = originalText;
+        deleteBtn.style.background = '#ef4444';
+        cleanup();
+      };
+      
+      const cleanup = () => {
+        deleteBtn.removeEventListener('click', confirmDelete);
+        document.removeEventListener('click', handleOutsideClick);
+        setTimeout(() => {
+          deleteBtn.textContent = originalText;
+          deleteBtn.style.background = '#ef4444';
+        }, 3000);
+      };
+      
+      const handleOutsideClick = (e) => {
+        if (!deleteBtn.contains(e.target)) {
+          cancelDelete();
+        }
+      };
+      
+      deleteBtn.addEventListener('click', confirmDelete);
+      setTimeout(() => {
+        document.addEventListener('click', handleOutsideClick);
+      }, 0);
+    }
+
+    async function performDelete(employee) {
+      try {
+        const response = await fetch(`${API_URL}/employees/${employee.__backendId}`, {
+          method: 'DELETE'
+        });
+        const result = await response.json();
+        if (result.isOk) {
+          showToast('Employee deleted successfully', 'success');
+          await loadEmployees();
+        } else {
+          showToast('Failed to delete employee', 'error');
+        }
+      } catch (error) {
+        console.error('Error deleting employee:', error);
+        showToast('Failed to delete employee', 'error');
+      }
+    }
+
+    function closeModal() {
+      document.getElementById('employee-modal').style.display = 'none';
+      document.getElementById('employee-form').reset();
+      currentEmployee = null;
+    }
+
+    document.getElementById('employee-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const submitBtn = document.getElementById('submit-btn');
+      const submitText = document.getElementById('submit-text');
+      const submitSpinner = document.getElementById('submit-spinner');
+      
+      submitBtn.disabled = true;
+      submitSpinner.style.display = 'block';
+
+      const employeeData = {
+        name: document.getElementById('employee-name').value,
+        email: document.getElementById('employee-email').value,
+        department: document.getElementById('employee-department').value,
+        position: document.getElementById('employee-position').value,
+        salary: Number(document.getElementById('employee-salary').value),
+        hire_date: document.getElementById('employee-hire-date').value,
+        status: document.getElementById('employee-status').value
+      };
+
+      try {
+        let result;
+        if (currentEmployee) {
+          const response = await fetch(`${API_URL}/employees/${currentEmployee.__backendId}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(employeeData)
+          });
+          result = await response.json();
+        } else {
+          if (recordCount >= 999) {
+            showToast('Maximum limit of 999 employees reached', 'error');
+            submitBtn.disabled = false;
+            submitSpinner.style.display = 'none';
+            return;
+          }
+          const response = await fetch(`${API_URL}/employees`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(employeeData)
+          });
+          result = await response.json();
+        }
+
+        submitBtn.disabled = false;
+        submitSpinner.style.display = 'none';
+
+        if (result.isOk) {
+          showToast(currentEmployee ? 'Employee updated successfully' : 'Employee added successfully', 'success');
+          closeModal();
+          await loadEmployees();
+        } else {
+          showToast(result.error || 'Failed to save employee', 'error');
+        }
+      } catch (error) {
+        console.error('Error saving employee:', error);
+        submitBtn.disabled = false;
+        submitSpinner.style.display = 'none';
+        showToast('Failed to save employee', 'error');
+      }
+    });
+
+    document.getElementById('search-input').addEventListener('input', updateUI);
+    document.getElementById('department-filter').addEventListener('change', updateUI);
+    document.getElementById('status-filter').addEventListener('change', updateUI);
+
+    function showToast(message, type) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.className = `toast ${type} show`;
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 3000);
+    }
+
+    initializeApp();
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9a4a1100a77bd77e',t:'MTc2NDE2NzI0NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>

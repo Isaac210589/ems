@@ -1,0 +1,5 @@
+node_modules/
+employees.db
+.DS_Store
+*.log
+npm-debug.log*
